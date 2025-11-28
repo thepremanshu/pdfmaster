@@ -14,15 +14,11 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
 
-    <!-- PDF Libraries -->
-    <!-- PDF.js for Viewing/Checking Password -->
+    <!-- PDF Libraries (Versions fixed for compatibility) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-    <!-- PDF-Lib for Editing/Saving/Decryption -->
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <!-- DownloadJS for File Saving -->
-    <script src="https://unpkg.com/downloadjs@1.4.7/download.min.js"></script>
 
-    <!-- Firebase SDK (For Auth) -->
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
@@ -30,202 +26,186 @@
     <style>
         body { font-family: 'Poppins', sans-serif; background: #0f172a; color: white; overflow-x: hidden; }
 
-        /* UI Effects */
+        /* UI Styles */
         .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
         .glass-header { background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,0.05); }
         .gradient-text { background: linear-gradient(to right, #60a5fa, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .btn-gradient { background: linear-gradient(to right, #2563eb, #7c3aed); transition: transform 0.2s; }
-        .btn-gradient:hover { opacity: 0.9; transform: translateY(-1px); }
 
-        /* Canvas Wrapper */
-        #workspace-container { display: flex; flex-direction: column; align-items: center; min-height: 80vh; background: #1e293b; padding: 2rem; }
-        #pdf-wrapper { position: relative; box-shadow: 0 20px 50px rgba(0,0,0,0.6); }
+        /* Viewer & Canvas */
+        #workspace-area {
+            position: relative; margin: 0 auto; 
+            padding: 40px 0; display: flex; justify-content: center; 
+            background: #334155; 
+            overflow: auto;
+            min-height: 80vh;
+        }
+
+        #pdf-wrapper { position: relative; box-shadow: 0 10px 40px rgba(0,0,0,0.6); }
         #the-canvas { display: block; }
 
-        /* Interaction Layers */
-        #draw-layer { position: absolute; top: 0; left: 0; touch-action: none; z-index: 10; pointer-events: none; }
+        /* Edit Layers */
+        #draw-layer { position: absolute; top: 0; left: 0; z-index: 10; touch-action: none; pointer-events: none; }
         #text-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 20; pointer-events: none; overflow: hidden; }
 
-        /* Draggable Text */
         .draggable-text {
-            position: absolute; border: 1px dashed transparent; padding: 2px;
-            pointer-events: auto; white-space: nowrap; user-select: none; font-family: 'Helvetica', sans-serif;
-            line-height: 1;
+            position: absolute; border: 1px dashed transparent; padding: 4px;
+            pointer-events: auto; white-space: nowrap; user-select: none; font-family: 'Helvetica', sans-serif; line-height: 1;
         }
-        .draggable-text:hover { border-color: #3b82f6; background: rgba(255,255,255,0.1); cursor: move; }
-        .delete-text-btn { position: absolute; top: -12px; right: -12px; width: 18px; height: 18px; background: red; color: white; border-radius: 50%; display: none; justify-content: center; align-items: center; font-size: 10px; cursor: pointer; }
-        .draggable-text:hover .delete-text-btn { display: flex; }
+        .draggable-text:hover { border-color: #3b82f6; background: rgba(255,255,255,0.2); cursor: move; }
+        
+        /* Deletion X button */
+        .del-btn {
+            position: absolute; top: -10px; right: -10px; width: 20px; height: 20px;
+            background: red; color: white; border-radius: 50%; font-size: 12px;
+            display: none; align-items: center; justify-content: center; cursor: pointer;
+        }
+        .draggable-text:hover .del-btn { display: flex; }
 
-        /* Helpers */
-        .hidden { display: none !important; }
-        #loader { position: fixed; inset: 0; background: #0f172a; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        .loader-bar { width: 200px; height: 4px; background: #334155; border-radius: 2px; overflow: hidden; margin-top: 20px; }
-        .loader-progress { width: 0%; height: 100%; background: linear-gradient(90deg, #3b82f6, #8b5cf6); animation: loadProgress 2s ease-in-out forwards; }
-        @keyframes loadProgress { 0% { width: 0%; } 100% { width: 100%; } }
+        /* Loader */
+        #loader { position: fixed; inset: 0; background: #0f172a; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .progress-bar { width: 200px; height: 4px; background: #334155; border-radius: 2px; margin-top: 15px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #2563eb, #9333ea); width: 0%; animation: load 2s ease-in-out forwards; }
+        @keyframes load { to { width: 100%; } }
     </style>
 </head>
 <body>
 
-    <!-- Loader -->
+    <!-- LOADER -->
     <div id="loader">
-        <h1 class="text-4xl font-bold tracking-widest">APNA ADDA</h1>
-        <div class="loader-bar"><div class="loader-progress"></div></div>
-        <p class="mt-4 text-xs text-gray-500">DEVELOPED BY PREMANSHU KUMAR</p>
+        <h1 class="text-3xl font-bold tracking-widest text-white">APNA ADDA</h1>
+        <div class="progress-bar"><div class="progress-fill"></div></div>
+        <p class="mt-4 text-gray-500 text-xs">DEVELOPED BY PREMANSHU KUMAR</p>
     </div>
 
-    <!-- Auth Modal -->
-    <div id="auth-modal" class="fixed inset-0 bg-black/80 hidden z-50 flex items-center justify-center backdrop-blur-sm">
+    <!-- AUTH MODAL -->
+    <div id="auth-modal" class="fixed inset-0 bg-black/80 hidden z-50 flex items-center justify-center backdrop-blur">
         <div class="glass p-8 rounded-2xl w-full max-w-sm relative">
-            <button onclick="toggleModal('auth-modal', false)" class="absolute top-4 right-4 text-gray-400 hover:text-white"><i class="fas fa-times"></i></button>
-            <h2 class="text-2xl font-bold mb-4 text-center">Authentication Required</h2>
-            <p class="text-sm text-center text-gray-400 mb-6">Log in to save and download your files.</p>
+            <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white"><i class="fas fa-times"></i></button>
+            <h2 class="text-2xl font-bold mb-2 text-center">Log In Required</h2>
+            <p class="text-gray-400 text-xs text-center mb-6">Login to Download/Save files</p>
             <form id="login-form" class="space-y-4">
-                <input type="email" id="auth-email" class="w-full bg-slate-800 border border-slate-700 rounded p-3 text-white focus:outline-none focus:border-blue-500" placeholder="Email" required>
-                <input type="password" id="auth-password" class="w-full bg-slate-800 border border-slate-700 rounded p-3 text-white focus:outline-none focus:border-blue-500" placeholder="Password" required>
-                <button type="submit" class="w-full btn-gradient py-3 rounded font-bold text-white shadow-lg">Login / Sign Up</button>
+                <input type="email" id="u-email" placeholder="Email" class="w-full bg-slate-800 border border-slate-600 rounded p-3 text-white outline-none focus:border-blue-500" required>
+                <input type="password" id="u-pass" placeholder="Password" class="w-full bg-slate-800 border border-slate-600 rounded p-3 text-white outline-none focus:border-blue-500" required>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded font-bold text-white transition">Enter Apna Adda</button>
             </form>
-            <p id="auth-msg" class="text-xs text-center text-red-400 mt-4"></p>
+            <p id="login-error" class="text-red-500 text-xs text-center mt-3"></p>
         </div>
     </div>
 
-    <!-- App Wrapper -->
+    <!-- APP CONTAINER -->
     <div id="app" class="hidden flex flex-col min-h-screen">
         
-        <!-- Navbar -->
-        <header class="glass-header fixed w-full z-40">
-            <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-                <div class="text-xl md:text-2xl font-bold gradient-text cursor-pointer" onclick="goHome()">APNA ADDA</div>
+        <!-- NAVBAR -->
+        <header class="glass-header fixed w-full z-40 h-16 flex items-center">
+            <div class="w-full max-w-7xl mx-auto px-4 flex justify-between items-center">
+                <div class="text-xl font-bold gradient-text cursor-pointer" onclick="goHome()">APNA ADDA</div>
                 <div class="flex items-center gap-4">
-                    <span id="user-tag" class="hidden text-xs md:text-sm text-blue-300 font-medium"></span>
-                    <button id="auth-btn" onclick="toggleModal('auth-modal', true)" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-1.5 rounded-full text-xs md:text-sm font-semibold transition">Login</button>
+                    <span id="u-name" class="text-sm text-blue-300 font-medium hidden"></span>
+                    <button id="auth-btn" onclick="openModal()" class="bg-slate-700 hover:bg-slate-600 text-white text-xs px-4 py-2 rounded-full font-bold">LOGIN</button>
                 </div>
             </div>
         </header>
 
-        <main class="flex-grow pt-20 px-4">
-            
-            <!-- Home Section -->
-            <section id="home-view" class="max-w-6xl mx-auto fade-in">
-                <div class="text-center py-16">
-                    <h1 class="text-4xl md:text-6xl font-bold mb-4">Complete <span class="gradient-text">PDF Solutions</span></h1>
-                    <p class="text-gray-400 max-w-xl mx-auto mb-10">Securely View, Edit, Encrypt, and Decrypt your documents entirely in the browser.</p>
-                </div>
+        <!-- MAIN -->
+        <main class="flex-grow pt-16">
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <button onclick="setupTool('view')" class="glass p-6 rounded-xl hover:bg-slate-800/60 transition text-left group">
-                        <i class="fas fa-eye text-3xl text-blue-400 mb-3 group-hover:scale-110 transition"></i>
-                        <h3 class="text-lg font-bold">View PDF</h3>
-                        <p class="text-xs text-gray-500 mt-1">Read and navigate documents.</p>
-                    </button>
-                    <button onclick="setupTool('edit')" class="glass p-6 rounded-xl hover:bg-slate-800/60 transition text-left group">
-                        <i class="fas fa-pen-fancy text-3xl text-green-400 mb-3 group-hover:scale-110 transition"></i>
-                        <h3 class="text-lg font-bold">Edit PDF</h3>
-                        <p class="text-xs text-gray-500 mt-1">Add text, drawings, and shapes.</p>
-                    </button>
-                    <button onclick="setupTool('protect')" class="glass p-6 rounded-xl hover:bg-slate-800/60 transition text-left group">
-                        <i class="fas fa-lock text-3xl text-red-400 mb-3 group-hover:scale-110 transition"></i>
-                        <h3 class="text-lg font-bold">Protect PDF</h3>
-                        <p class="text-xs text-gray-500 mt-1">Encrypt files with passwords.</p>
-                    </button>
-                    <button onclick="setupTool('unlock')" class="glass p-6 rounded-xl hover:bg-slate-800/60 transition text-left group">
-                        <i class="fas fa-unlock-keyhole text-3xl text-yellow-400 mb-3 group-hover:scale-110 transition"></i>
-                        <h3 class="text-lg font-bold">Unlock PDF</h3>
-                        <p class="text-xs text-gray-500 mt-1">Remove PDF passwords permanently.</p>
-                    </button>
+            <!-- VIEW: HOME -->
+            <section id="home-view" class="max-w-7xl mx-auto px-4 py-20 fade-in">
+                <div class="text-center mb-16">
+                    <h1 class="text-5xl font-bold mb-6">PDF Tools <span class="gradient-text">Reimagined</span></h1>
+                    <p class="text-gray-400 max-w-2xl mx-auto">The easiest way to View, Edit, Protect and Unlock PDF files.</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
+                    <!-- Cards -->
+                    <div onclick="selectTool('view')" class="glass p-8 rounded-xl cursor-pointer hover:bg-white/5 transition group">
+                        <i class="fas fa-eye text-4xl text-blue-500 mb-4 group-hover:scale-110 transition"></i>
+                        <h3 class="font-bold text-lg">View PDF</h3>
+                    </div>
+                    <div onclick="selectTool('edit')" class="glass p-8 rounded-xl cursor-pointer hover:bg-white/5 transition group">
+                        <i class="fas fa-pen-nib text-4xl text-green-500 mb-4 group-hover:scale-110 transition"></i>
+                        <h3 class="font-bold text-lg">Edit PDF</h3>
+                    </div>
+                    <div onclick="selectTool('protect')" class="glass p-8 rounded-xl cursor-pointer hover:bg-white/5 transition group">
+                        <i class="fas fa-lock text-4xl text-red-500 mb-4 group-hover:scale-110 transition"></i>
+                        <h3 class="font-bold text-lg">Protect PDF</h3>
+                    </div>
+                    <div onclick="selectTool('unlock')" class="glass p-8 rounded-xl cursor-pointer hover:bg-white/5 transition group">
+                        <i class="fas fa-unlock text-4xl text-yellow-500 mb-4 group-hover:scale-110 transition"></i>
+                        <h3 class="font-bold text-lg">Unlock PDF</h3>
+                    </div>
                 </div>
             </section>
 
-            <!-- Workspace Section -->
-            <section id="workspace-view" class="hidden fade-in w-full pb-20">
+            <!-- VIEW: WORKSPACE -->
+            <section id="work-view" class="hidden w-full h-full flex flex-col">
                 
-                <!-- Toolbar Area -->
-                <div class="max-w-6xl mx-auto flex items-center justify-between mb-4">
-                    <button onclick="goHome()" class="text-gray-400 hover:text-white flex items-center gap-2"><i class="fas fa-arrow-left"></i> <span class="hidden sm:inline">Back</span></button>
-                    <h2 id="tool-name" class="text-xl font-bold uppercase tracking-wide gradient-text">Tool</h2>
-                    <div class="w-10"></div>
-                </div>
-
-                <!-- 1. Upload Box -->
-                <div id="upload-box" class="max-w-2xl mx-auto glass border-2 border-dashed border-gray-600 rounded-xl p-12 text-center cursor-pointer hover:border-blue-500 hover:bg-slate-800/50 transition">
-                    <input type="file" id="file-input" class="hidden" accept="application/pdf">
-                    <i class="fas fa-cloud-upload-alt text-5xl text-gray-500 mb-4"></i>
-                    <h3 class="text-xl font-bold">Upload PDF File</h3>
-                    <p class="text-sm text-gray-400 mt-2">Click to browse</p>
-                </div>
-
-                <!-- 2. Unlock Password Prompt (Only shows if file is locked) -->
-                <div id="unlock-prompt" class="hidden max-w-md mx-auto glass p-6 rounded-xl text-center mt-10 shadow-2xl border border-red-500/30">
-                    <div class="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <i class="fas fa-lock text-red-500 text-2xl"></i>
-                    </div>
-                    <h3 class="text-xl font-bold mb-2">Password Protected</h3>
-                    <p class="text-sm text-gray-400 mb-4">Enter the password to view and unlock this document.</p>
+                <!-- Toolbar -->
+                <div class="bg-slate-800 border-b border-slate-700 p-2 flex items-center justify-between shadow-lg sticky top-16 z-30">
+                    <button onclick="goHome()" class="text-gray-400 hover:text-white px-3"><i class="fas fa-arrow-left"></i></button>
                     
-                    <input type="password" id="unlock-pwd-input" placeholder="Enter File Password" class="w-full bg-slate-800 border border-slate-600 rounded p-3 mb-4 text-center focus:border-blue-500 outline-none">
-                    
-                    <button onclick="tryUnlockFile()" id="unlock-btn" class="w-full btn-gradient py-2 rounded font-bold">Unlock File</button>
-                    <p id="unlock-error" class="text-red-400 text-sm mt-2 hidden"></p>
-                </div>
+                    <h2 id="tool-title" class="text-sm font-bold text-blue-400 uppercase tracking-wider">Tool Name</h2>
 
-                <!-- 3. Main Viewer & Tools -->
-                <div id="viewer-interface" class="hidden">
-                    
-                    <!-- Editor / View Controls -->
-                    <div class="glass p-2 rounded-lg mb-4 flex flex-wrap gap-4 items-center justify-center sticky top-20 z-30 max-w-4xl mx-auto bg-slate-900/90 backdrop-blur">
-                        
-                        <!-- Page Nav -->
-                        <div class="flex items-center gap-2">
-                            <button onclick="navPage(-1)" class="w-8 h-8 rounded hover:bg-slate-700 flex items-center justify-center"><i class="fas fa-chevron-left"></i></button>
-                            <span id="page-indicator" class="text-sm font-mono">0/0</span>
-                            <button onclick="navPage(1)" class="w-8 h-8 rounded hover:bg-slate-700 flex items-center justify-center"><i class="fas fa-chevron-right"></i></button>
-                        </div>
-
-                        <div class="h-6 w-px bg-gray-700 hidden sm:block"></div>
-
-                        <!-- Editor Tools -->
-                        <div id="editor-tools" class="hidden flex items-center gap-2">
-                            <button id="tool-pen" onclick="setMode('pen')" class="p-2 rounded text-gray-400 hover:text-blue-400 hover:bg-slate-700" title="Pen"><i class="fas fa-pencil"></i></button>
-                            <input type="color" id="pen-color" value="#ff0000" class="w-6 h-6 bg-transparent border-none cursor-pointer">
-                            <button id="tool-text" onclick="setMode('text')" class="p-2 rounded text-gray-400 hover:text-blue-400 hover:bg-slate-700" title="Text"><i class="fas fa-font"></i></button>
-                            <button onclick="clearEdits()" class="p-2 rounded text-red-400 hover:bg-slate-700 text-xs" title="Clear Page"><i class="fas fa-eraser"></i></button>
-                        </div>
-
-                        <!-- Protection Tools -->
-                        <div id="protect-tools" class="hidden flex items-center gap-2">
-                            <input type="password" id="protect-pwd" placeholder="Set Password" class="bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm w-32 focus:border-blue-500 outline-none">
-                        </div>
-
-                        <div id="unlock-success-msg" class="hidden text-green-400 text-sm font-bold flex items-center gap-1">
-                            <i class="fas fa-check-circle"></i> Unlocked
-                        </div>
-
-                        <!-- Action -->
-                        <button onclick="checkAuthAndDownload()" id="download-trigger" class="ml-auto bg-green-600 hover:bg-green-500 text-white px-4 py-1.5 rounded text-sm font-bold transition flex items-center gap-2">
-                            <i class="fas fa-download"></i> <span id="dl-btn-text">Download</span>
-                        </button>
+                    <!-- Conditional Tool Controls -->
+                    <div id="controls-edit" class="hidden flex items-center gap-2">
+                        <button onclick="setMode('pen')" id="btn-pen" class="p-1.5 rounded hover:bg-slate-700 text-gray-400"><i class="fas fa-pencil"></i></button>
+                        <input type="color" id="pen-color" value="#ff0000" class="w-6 h-6 bg-transparent border-0 cursor-pointer">
+                        <button onclick="setMode('text')" id="btn-text" class="p-1.5 rounded hover:bg-slate-700 text-gray-400"><i class="fas fa-font"></i></button>
+                        <button onclick="clearCurrentEdits()" class="p-1.5 text-xs text-red-400 ml-2 hover:bg-slate-700">Clear</button>
                     </div>
 
-                    <!-- PDF Display -->
-                    <div id="workspace-container">
-                        <div id="pdf-wrapper">
-                            <canvas id="the-canvas"></canvas>
-                            <canvas id="draw-layer"></canvas>
-                            <div id="text-layer"></div>
-                        </div>
+                    <div id="controls-protect" class="hidden flex items-center gap-2">
+                        <input type="password" id="protect-pwd" placeholder="Set Password" class="bg-slate-700 text-white text-xs px-2 py-1 rounded w-32 outline-none">
+                    </div>
+                    
+                    <div id="controls-nav" class="flex items-center gap-2">
+                        <button onclick="changePage(-1)" class="w-8 h-8 flex items-center justify-center bg-slate-700 rounded hover:bg-slate-600"><i class="fas fa-chevron-left"></i></button>
+                        <span id="pg-num" class="text-xs font-mono w-10 text-center">0/0</span>
+                        <button onclick="changePage(1)" class="w-8 h-8 flex items-center justify-center bg-slate-700 rounded hover:bg-slate-600"><i class="fas fa-chevron-right"></i></button>
+                        <button onclick="triggerDownload()" class="ml-4 bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded font-bold shadow-lg transition">Download</button>
+                    </div>
+                </div>
+
+                <!-- Step 1: Upload / Password Prompt -->
+                <div id="step-upload" class="flex-grow flex items-center justify-center py-20">
+                    
+                    <!-- Uploader -->
+                    <div id="drop-zone" onclick="document.getElementById('file-in').click()" class="border-2 border-dashed border-slate-600 bg-slate-800/50 p-16 rounded-2xl cursor-pointer hover:border-blue-500 hover:bg-slate-800 transition text-center">
+                        <input type="file" id="file-in" class="hidden" accept="application/pdf">
+                        <i class="fas fa-cloud-upload-alt text-4xl text-gray-500 mb-4"></i>
+                        <p class="font-bold text-gray-300">Click to Upload PDF</p>
+                    </div>
+
+                    <!-- Password Prompt for Locked Files -->
+                    <div id="lock-screen" class="hidden text-center bg-slate-800 p-8 rounded-xl shadow-2xl border border-red-500/20 max-w-sm">
+                        <i class="fas fa-lock text-red-500 text-3xl mb-4"></i>
+                        <h3 class="text-xl font-bold mb-2">Encrypted File</h3>
+                        <p class="text-xs text-gray-400 mb-4">Enter password to View/Unlock/Edit.</p>
+                        <input type="password" id="decrypt-input" class="w-full bg-slate-900 border border-slate-700 rounded p-2 mb-3 text-white text-center" placeholder="Enter Password">
+                        <button onclick="tryDecrypt()" class="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2 rounded">Unlock</button>
+                        <p id="unlock-msg" class="text-xs text-red-400 mt-2 hidden">Incorrect Password</p>
+                    </div>
+                </div>
+
+                <!-- Step 2: Editor Canvas -->
+                <div id="step-editor" class="hidden bg-slate-900 overflow-auto py-10 relative flex-grow justify-center flex">
+                    <div id="pdf-wrapper">
+                        <canvas id="the-canvas"></canvas>
+                        <canvas id="draw-layer"></canvas>
+                        <div id="text-layer"></div>
                     </div>
                 </div>
 
             </section>
-        </main>
 
-        <footer class="text-center py-4 text-xs text-gray-600 border-t border-slate-800 bg-[#0f172a]">
-            APNA ADDA &copy; 2025 | Developed by Premanshu Kumar
-        </footer>
+        </main>
+        
+        <footer class="glass-header text-center py-4 text-xs text-gray-500 z-50">APNA ADDA &copy; 2025</footer>
+
     </div>
 
-    <!-- MAIN LOGIC -->
+    <!-- MAIN SCRIPT -->
     <script>
-        // --- FIREBASE INIT ---
+        // --- 1. CONFIGURATION ---
         const firebaseConfig = {
             apiKey: "AIzaSyAaY6wBjg4ooOqg841Dr5Nd2bZmlDIzJYU",
             authDomain: "namaste-2bfcc.firebaseapp.com",
@@ -238,420 +218,377 @@
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
 
-        // PDF.js Worker
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
-        // --- STATE MANAGEMENT ---
-        const state = {
+        // --- 2. GLOBAL STATE ---
+        const ST = {
             user: null,
-            activeTool: '', // view, edit, protect, unlock
-            fileBytes: null,
-            fileName: '',
-            pdfProxy: null,
-            password: null, // Holds valid password for detected locked files
-            
-            // Viewer Props
+            tool: '', // view, edit, protect, unlock
+            buffer: null,
+            filename: '',
+            pdf: null,
             pageNum: 1,
             numPages: 0,
             scale: 1.5,
-
-            // Editor Props
-            mode: 'view', // view, pen, text
-            isDrawing: false,
-            drawings: {}, // {pageNum: DataURL}
-            texts: {},    // {pageNum: [{text,x,y,size,color}]}
             
-            downloadPending: false
+            // Password state for Encrypted files
+            filePassword: null, 
+
+            // Edit Data
+            drawings: {}, // page -> dataUrl
+            texts: {}, // page -> arr of obj
+            mode: 'view', // view, pen, text
+            isDraw: false,
+            dlPending: false
         };
 
-        // --- AUTH LOGIC ---
-        auth.onAuthStateChanged(u => {
-            state.user = u;
-            const tag = document.getElementById('user-tag');
-            const btn = document.getElementById('auth-btn');
-
-            if(u) {
-                tag.textContent = u.email.split('@')[0];
-                tag.classList.remove('hidden');
-                btn.textContent = "Logout";
-                btn.onclick = () => auth.signOut();
-                if(state.downloadPending) {
-                    toggleModal('auth-modal', false);
-                    state.downloadPending = false;
-                    performDownload();
-                }
-            } else {
-                tag.classList.add('hidden');
-                btn.textContent = "Login";
-                btn.onclick = () => toggleModal('auth-modal', true);
-            }
-        });
-
-        document.getElementById('login-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('auth-email').value;
-            const pass = document.getElementById('auth-password').value;
-            const msg = document.getElementById('auth-msg');
-            msg.textContent = "";
-
-            try {
-                await auth.signInWithEmailAndPassword(email, pass);
-                toggleModal('auth-modal', false);
-            } catch (err) {
-                if(err.code === 'auth/user-not-found') {
-                    try { await auth.createUserWithEmailAndPassword(email, pass); toggleModal('auth-modal', false); }
-                    catch (e2) { msg.textContent = e2.message; }
-                } else {
-                    msg.textContent = err.message;
-                }
-            }
-        });
-
-        function toggleModal(id, show) {
-            document.getElementById(id).classList.toggle('hidden', !show);
+        // --- 3. INITIALIZATION & NAV ---
+        window.onload = () => {
+            setTimeout(() => { document.getElementById('loader').classList.add('hidden'); document.getElementById('app').classList.remove('hidden'); }, 1500);
         }
-
-        // --- APP FLOW ---
-        window.onload = () => { setTimeout(() => { document.getElementById('loader').classList.add('hidden'); document.getElementById('app').classList.remove('hidden'); }, 1500); };
 
         function goHome() {
             document.getElementById('home-view').classList.remove('hidden');
-            document.getElementById('workspace-view').classList.add('hidden');
-            resetWorkspace();
+            document.getElementById('work-view').classList.add('hidden');
+            resetST();
         }
 
-        function setupTool(tool) {
-            state.activeTool = tool;
+        function resetST() {
+            ST.buffer=null; ST.pdf=null; ST.filePassword=null; ST.drawings={}; ST.texts={};
+            document.getElementById('file-in').value='';
+            document.getElementById('step-upload').classList.remove('hidden');
+            document.getElementById('drop-zone').classList.remove('hidden');
+            document.getElementById('lock-screen').classList.add('hidden');
+            document.getElementById('step-editor').classList.add('hidden');
+        }
+
+        function selectTool(toolName) {
+            ST.tool = toolName;
             document.getElementById('home-view').classList.add('hidden');
-            document.getElementById('workspace-view').classList.remove('hidden');
-            document.getElementById('tool-name').textContent = tool;
-            
-            // Adjust UI Text
-            const btnText = document.getElementById('dl-btn-text');
-            if(tool === 'unlock') btnText.textContent = "Download Unlocked PDF";
-            else if(tool === 'protect') btnText.textContent = "Protect & Download";
-            else if(tool === 'edit') btnText.textContent = "Save & Download";
-            else btnText.textContent = "Download";
+            document.getElementById('work-view').classList.remove('hidden');
+            document.getElementById('work-view').classList.remove('hidden');
+            document.getElementById('work-view').style.display = 'flex'; // Ensure flex layout
 
-            // Tool UI Config
-            document.getElementById('editor-tools').classList.toggle('hidden', tool !== 'edit');
-            document.getElementById('protect-tools').classList.toggle('hidden', tool !== 'protect');
-            document.getElementById('unlock-success-msg').classList.add('hidden');
+            const labels = {view:'View', edit:'Edit', protect:'Protect', unlock:'Unlock'};
+            document.getElementById('tool-title').textContent = labels[toolName] + ' PDF';
+
+            // Show controls
+            document.getElementById('controls-edit').classList.add('hidden');
+            document.getElementById('controls-protect').classList.add('hidden');
+            if(toolName==='edit') document.getElementById('controls-edit').classList.remove('hidden');
+            if(toolName==='protect') document.getElementById('controls-protect').classList.remove('hidden');
         }
 
-        // --- UPLOAD HANDLER ---
-        document.getElementById('upload-box').onclick = () => document.getElementById('file-input').click();
-        document.getElementById('file-input').onchange = async (e) => {
-            if(!e.target.files[0]) return;
-            const file = e.target.files[0];
-            state.fileName = file.name;
-            state.fileBytes = await file.arrayBuffer();
+        // --- 4. AUTH ---
+        auth.onAuthStateChanged(user => {
+            ST.user = user;
+            if(user) {
+                document.getElementById('auth-btn').textContent = "LOGOUT";
+                document.getElementById('auth-btn').onclick = () => auth.signOut();
+                document.getElementById('u-name').textContent = user.email.split('@')[0];
+                document.getElementById('u-name').classList.remove('hidden');
+                
+                if(ST.dlPending) { closeModal(); ST.dlPending=false; triggerDownload(); }
+            } else {
+                document.getElementById('auth-btn').textContent = "LOGIN";
+                document.getElementById('auth-btn').onclick = openModal;
+                document.getElementById('u-name').classList.add('hidden');
+            }
+        });
 
-            // Check if Locked or Just load
-            detectPDFLock(state.fileBytes);
+        function openModal() { document.getElementById('auth-modal').classList.remove('hidden'); }
+        function closeModal() { document.getElementById('auth-modal').classList.add('hidden'); document.getElementById('login-error').textContent=''; }
+
+        document.getElementById('login-form').onsubmit = async (e) => {
+            e.preventDefault();
+            try {
+                await auth.signInWithEmailAndPassword(document.getElementById('u-email').value, document.getElementById('u-pass').value);
+                closeModal();
+            } catch(e) {
+                if(e.code==='auth/user-not-found') {
+                    try { await auth.createUserWithEmailAndPassword(document.getElementById('u-email').value, document.getElementById('u-pass').value); closeModal(); }
+                    catch(e2) { document.getElementById('login-error').textContent=e2.message; }
+                } else document.getElementById('login-error').textContent=e.message;
+            }
+        }
+
+        // --- 5. FILE HANDLING ---
+        document.getElementById('file-in').onchange = async (e) => {
+            const file = e.target.files[0];
+            if(!file) return;
+            ST.filename = file.name;
+            ST.buffer = await file.arrayBuffer();
+            attemptLoad();
         };
 
-        async function detectPDFLock(buffer) {
+        async function attemptLoad(password = null) {
             try {
-                // Try opening without password
-                const loading = pdfjsLib.getDocument({ data: buffer });
-                state.pdfProxy = await loading.promise;
+                // PDF.js uses null for no password, or a string
+                const loading = pdfjsLib.getDocument({ data: ST.buffer, password: password });
+                ST.pdf = await loading.promise;
                 
-                // If success: File is NOT locked
-                // If tool is Unlock, warn user
-                if(state.activeTool === 'unlock') {
-                    alert("This file is not password protected. You can just download it.");
-                    document.getElementById('dl-btn-text').textContent = "Download PDF"; // Revert text
+                // If success:
+                ST.filePassword = password; // Save valid password
+                ST.numPages = ST.pdf.numPages;
+                ST.pageNum = 1;
+
+                document.getElementById('step-upload').classList.add('hidden');
+                document.getElementById('step-editor').classList.remove('hidden');
+                
+                // Auto Alert for "Unlock" tool usage if file was not actually locked
+                if(ST.tool === 'unlock' && !password) {
+                   // File was openable without password
+                   // Just let user proceed to download
                 }
 
-                initViewer();
+                renderPage();
+
             } catch (err) {
                 if (err.name === 'PasswordException') {
-                    // FILE IS LOCKED
-                    handleLockedFile();
+                    document.getElementById('drop-zone').classList.add('hidden');
+                    document.getElementById('lock-screen').classList.remove('hidden');
+                    document.getElementById('unlock-msg').classList.add('hidden');
                 } else {
-                    alert("Error loading PDF: " + err.message);
+                    alert('File Error: '+err.message);
                 }
             }
         }
 
-        function handleLockedFile() {
-            document.getElementById('upload-box').classList.add('hidden');
-            // Show Password Prompt specific to the workflow
-            document.getElementById('unlock-prompt').classList.remove('hidden');
-            document.getElementById('viewer-interface').classList.add('hidden'); // Hide viewer until unlocked
-            document.getElementById('unlock-error').classList.add('hidden');
-            document.getElementById('unlock-pwd-input').value = "";
+        function tryDecrypt() {
+            const pwd = document.getElementById('decrypt-input').value;
+            if(!pwd) return;
+            attemptLoad(pwd);
         }
 
-        async function tryUnlockFile() {
-            const pwd = document.getElementById('unlock-pwd-input').value;
-            const btn = document.getElementById('unlock-btn');
-            const err = document.getElementById('unlock-error');
-            
-            if(!pwd) { err.textContent = "Please enter password"; err.classList.remove('hidden'); return; }
-
-            btn.textContent = "Verifying...";
-            btn.disabled = true;
-
-            try {
-                // Try opening WITH password
-                const loading = pdfjsLib.getDocument({ data: state.fileBytes, password: pwd });
-                state.pdfProxy = await loading.promise;
-
-                // SUCCESS: Valid Password
-                state.password = pwd; // Store for the download action
-                
-                // Switch UI
-                document.getElementById('unlock-prompt').classList.add('hidden');
-                initViewer(); // Show the PDF
-                
-                // Show detected signal
-                if(state.activeTool === 'unlock') {
-                    document.getElementById('unlock-success-msg').classList.remove('hidden');
-                    document.getElementById('dl-btn-text').textContent = "Download Unlocked PDF"; // Ensure text is correct
-                    // IMPORTANT: The button in 'viewer-interface' is enabled and will work because initViewer unhides parent
-                }
-
-            } catch (error) {
-                err.textContent = "Incorrect Password";
-                err.classList.remove('hidden');
-                btn.textContent = "Unlock File";
-                btn.disabled = false;
-            }
-        }
-
-        function initViewer() {
-            document.getElementById('upload-box').classList.add('hidden');
-            document.getElementById('viewer-interface').classList.remove('hidden');
-            state.numPages = state.pdfProxy.numPages;
-            state.pageNum = 1;
-            renderPage();
-        }
-
-        // --- VIEWER RENDER ---
+        // --- 6. RENDERER ---
         async function renderPage() {
-            if(!state.pdfProxy) return;
-            document.getElementById('page-indicator').textContent = `${state.pageNum}/${state.numPages}`;
+            document.getElementById('pg-num').textContent = `${ST.pageNum}/${ST.numPages}`;
             
-            const page = await state.pdfProxy.getPage(state.pageNum);
-            const viewport = page.getViewport({ scale: state.scale });
+            const page = await ST.pdf.getPage(ST.pageNum);
+            const viewport = page.getViewport({ scale: ST.scale });
+            
+            const cvs = document.getElementById('the-canvas');
+            const ctx = cvs.getContext('2d');
+            const wrap = document.getElementById('pdf-wrapper');
+            const dLay = document.getElementById('draw-layer');
+            const tLay = document.getElementById('text-layer');
 
-            const canvas = document.getElementById('the-canvas');
-            const ctx = canvas.getContext('2d');
-            const drawLayer = document.getElementById('draw-layer');
-            const pdfWrapper = document.getElementById('pdf-wrapper');
-            const textLayer = document.getElementById('text-layer');
-
-            canvas.width = viewport.width; canvas.height = viewport.height;
-            drawLayer.width = viewport.width; drawLayer.height = viewport.height;
-            pdfWrapper.style.width = `${viewport.width}px`; pdfWrapper.style.height = `${viewport.height}px`;
+            // Set Dimentions
+            cvs.width = viewport.width; cvs.height = viewport.height;
+            dLay.width = viewport.width; dLay.height = viewport.height;
+            wrap.style.width = viewport.width + 'px'; wrap.style.height = viewport.height + 'px';
 
             await page.render({ canvasContext: ctx, viewport }).promise;
 
-            // Restore Edits
-            const dCtx = drawLayer.getContext('2d');
-            dCtx.clearRect(0,0, drawLayer.width, drawLayer.height);
-            if(state.drawings[state.pageNum]) {
+            // Load Edit Layers
+            const dCtx = dLay.getContext('2d');
+            dCtx.clearRect(0,0,dLay.width,dLay.height);
+            if(ST.drawings[ST.pageNum]) {
                 const img = new Image();
                 img.onload = () => dCtx.drawImage(img, 0, 0);
-                img.src = state.drawings[state.pageNum];
+                img.src = ST.drawings[ST.pageNum];
             }
 
-            textLayer.innerHTML = '';
-            if(state.texts[state.pageNum]) {
-                state.texts[state.pageNum].forEach(t => addTextToDom(t.text, t.x, t.y, t.size, t.color));
+            tLay.innerHTML = '';
+            if(ST.texts[ST.pageNum]) {
+                ST.texts[ST.pageNum].forEach(t => renderTextDOM(t));
             }
         }
 
-        function navPage(d) {
-            if (state.activeTool === 'edit') saveCurrentPageEdits();
-            const next = state.pageNum + d;
-            if(next > 0 && next <= state.numPages) {
-                state.pageNum = next;
+        function changePage(delta) {
+            saveState(); // Save current page before switch
+            const next = ST.pageNum + delta;
+            if(next > 0 && next <= ST.numPages) {
+                ST.pageNum = next;
                 renderPage();
             }
         }
 
-        function resetWorkspace() {
-            state.fileBytes = null; state.password = null; state.drawings = {}; state.texts = {};
-            state.pdfProxy = null; state.fileName = "";
-            document.getElementById('file-input').value = "";
-            document.getElementById('upload-box').classList.remove('hidden');
-            document.getElementById('unlock-prompt').classList.add('hidden');
-            document.getElementById('viewer-interface').classList.add('hidden');
+        // --- 7. EDITING ---
+        const dLayer = document.getElementById('draw-layer');
+        const tLayer = document.getElementById('text-layer');
+        
+        function setMode(m) {
+            ST.mode = m;
+            document.getElementById('btn-pen').classList.toggle('text-blue-500', m==='pen');
+            document.getElementById('btn-text').classList.toggle('text-blue-500', m==='text');
+            dLayer.style.pointerEvents = m==='pen' ? 'auto':'none';
+            tLayer.style.pointerEvents = m==='text' ? 'auto':'none';
         }
 
-        // --- EDITING LOGIC (Simplified) ---
-        // Mouse Coordinates Fix
-        const getPos = (e, canvas) => {
-            const r = canvas.getBoundingClientRect();
+        function getCoord(e) {
+            const r = dLayer.getBoundingClientRect();
             return { x: e.clientX - r.left, y: e.clientY - r.top };
         }
 
-        const dLayer = document.getElementById('draw-layer');
-        const tLayer = document.getElementById('text-layer');
-        const dCtx = dLayer.getContext('2d');
-
-        function setMode(m) {
-            state.mode = m;
-            document.getElementById('tool-pen').classList.toggle('text-blue-400', m==='pen');
-            document.getElementById('tool-text').classList.toggle('text-blue-400', m==='text');
-            dLayer.style.pointerEvents = m === 'pen' ? 'auto' : 'none';
-            tLayer.style.pointerEvents = m === 'text' ? 'auto' : 'none';
-        }
-
+        // Pen
         dLayer.onpointerdown = (e) => {
-            if(state.mode !== 'pen') return;
-            state.isDrawing = true;
-            dCtx.beginPath();
-            const p = getPos(e, dLayer);
-            dCtx.moveTo(p.x, p.y);
-            dCtx.strokeStyle = document.getElementById('pen-color').value;
-            dCtx.lineWidth = 4;
-            dCtx.lineCap = 'round';
-        };
-        window.addEventListener('pointermove', (e) => {
-            if(!state.isDrawing) return;
-            const p = getPos(e, dLayer);
-            dCtx.lineTo(p.x, p.y);
-            dCtx.stroke();
-        });
-        window.addEventListener('pointerup', () => state.isDrawing = false);
+            if(ST.mode !== 'pen') return;
+            ST.isDraw = true;
+            const ctx = dLayer.getContext('2d');
+            const p = getCoord(e);
+            ctx.beginPath(); ctx.moveTo(p.x, p.y);
+            ctx.strokeStyle = document.getElementById('pen-color').value;
+            ctx.lineWidth = 4; ctx.lineCap='round';
+            dLayer.setPointerCapture(e.pointerId);
+        }
+        dLayer.onpointermove = (e) => {
+            if(!ST.isDraw) return;
+            const ctx = dLayer.getContext('2d');
+            const p = getCoord(e);
+            ctx.lineTo(p.x, p.y); ctx.stroke();
+        }
+        dLayer.onpointerup = (e) => { ST.isDraw = false; dLayer.releasePointerCapture(e.pointerId); }
 
+        // Text
         tLayer.onclick = (e) => {
-            if(state.mode !== 'text' || e.target.closest('.draggable-text')) return;
-            const p = getPos(e, tLayer);
+            if(ST.mode !== 'text' || e.target.classList.contains('draggable-text')) return;
             const text = prompt("Enter text:");
-            if(text) addTextToDom(text, p.x, p.y, 20, document.getElementById('pen-color').value);
+            if(!text) return;
+            const p = getCoord(e);
+            const obj = { text, x: p.x, y: p.y, color: document.getElementById('pen-color').value };
+            renderTextDOM(obj);
         }
 
-        function addTextToDom(txt, x, y, size, col) {
+        function renderTextDOM(obj) {
             const d = document.createElement('div');
             d.className = 'draggable-text';
-            d.textContent = txt;
-            d.style.left = x+'px'; d.style.top = y+'px';
-            d.style.color = col; d.style.fontSize = size+'px';
-            
-            const btn = document.createElement('div'); btn.className='delete-text-btn'; btn.innerHTML='&times;';
-            btn.onclick = (e) => { e.stopPropagation(); d.remove(); };
-            d.appendChild(btn);
-            
-            // Drag
+            d.textContent = obj.text;
+            d.style.left = obj.x+'px'; d.style.top = obj.y+'px';
+            d.style.color = obj.color; d.style.fontSize = '20px';
+
+            const del = document.createElement('div'); del.className='del-btn'; del.innerHTML='×';
+            del.onclick=(e)=>{ e.stopPropagation(); d.remove(); };
+            d.appendChild(del);
+
             d.onmousedown = (e) => {
-                if(state.mode!=='text') return;
+                if(ST.mode!=='text') return;
                 let sx=e.clientX, sy=e.clientY, ol=d.offsetLeft, ot=d.offsetTop;
                 window.onmousemove = (mv) => { d.style.left=(ol+mv.clientX-sx)+'px'; d.style.top=(ot+mv.clientY-sy)+'px'; }
                 window.onmouseup = () => window.onmousemove=null;
-            };
+            }
             tLayer.appendChild(d);
         }
 
-        function saveCurrentPageEdits() {
-            state.drawings[state.pageNum] = dLayer.toDataURL();
+        function saveState() {
+            if(ST.tool !== 'edit') return;
+            // Draw
+            ST.drawings[ST.pageNum] = dLayer.toDataURL();
+            // Text
             const arr = [];
             tLayer.querySelectorAll('.draggable-text').forEach(el => {
                 arr.push({ 
-                    text: el.textContent.slice(0,-1), // Remove x btn char
-                    x: parseInt(el.style.left), 
-                    y: parseInt(el.style.top), 
-                    size: parseInt(el.style.fontSize),
+                    text: el.textContent.replace('×',''), 
+                    x: parseInt(el.style.left), y: parseInt(el.style.top), 
                     color: el.style.color 
-                }); 
+                });
             });
-            state.texts[state.pageNum] = arr;
+            ST.texts[ST.pageNum] = arr;
         }
 
-        function clearEdits() {
-            dCtx.clearRect(0,0,1000,1000);
-            tLayer.innerHTML = '';
-            delete state.drawings[state.pageNum];
-            delete state.texts[state.pageNum];
+        function clearCurrentEdits() {
+            dLayer.getContext('2d').clearRect(0,0,dLayer.width,dLayer.height);
+            tLayer.innerHTML='';
         }
 
-        // --- DOWNLOAD CORE ---
-        function checkAuthAndDownload() {
-            if(!state.user) {
-                state.downloadPending = true;
-                toggleModal('auth-modal', true);
-            } else {
-                performDownload();
-            }
-        }
-
-        async function performDownload() {
-            const btn = document.getElementById('download-trigger');
-            const originalTxt = btn.innerHTML;
-            btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Processing`;
-            if(state.activeTool==='edit') saveCurrentPageEdits();
-
+        // --- 8. DOWNLOAD ENGINE (FIXED) ---
+        async function triggerDownload() {
+            if(!ST.user) { ST.dlPending=true; openModal(); return; }
+            saveState(); // Ensure current page changes are saved
+            
+            // Show processing
+            const oldTxt = event.target.textContent;
+            event.target.textContent = "Processing...";
+            
             try {
-                const { PDFDocument, rgb } = PDFLib;
+                const { PDFDocument, rgb, StandardFonts } = PDFLib;
                 
-                // 1. Load the PDF
-                // Use stored password if file was unlocked
-                const loadOpts = state.password ? { password: state.password } : {};
-                const pdfDoc = await PDFDocument.load(state.fileBytes, loadOpts);
+                // 1. Load Document (With password if existing)
+                let pdfDoc;
+                if(ST.filePassword) {
+                    pdfDoc = await PDFDocument.load(ST.buffer, { password: ST.filePassword });
+                } else {
+                    pdfDoc = await PDFDocument.load(ST.buffer);
+                }
 
-                // 2. Apply Edits
-                if(state.activeTool === 'edit') {
+                // 2. Embed Essentials
+                const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+                // 3. Apply Edits Loop
+                if(ST.tool === 'edit') {
                     const pages = pdfDoc.getPages();
                     for(let i=0; i<pages.length; i++) {
-                        const pgNum = i+1;
+                        const pageNum = i+1;
+                        if(!ST.drawings[pageNum] && !ST.texts[pageNum]) continue;
+
                         const page = pages[i];
                         const { width, height } = page.getSize();
                         
-                        // Current Canvas was scale 1.5, we must scale edits to PDF point size
-                        // Scalar = PDF Width / Viewport Width (Canvas Width)
-                        // Simple hack: We overlay the drawing image scaled exactly to page
-                        if(state.drawings[pgNum]) {
-                            const img = await pdfDoc.embedPng(state.drawings[pgNum]);
-                            page.drawImage(img, { x:0, y:0, width, height });
+                        // Apply Drawings
+                        if(ST.drawings[pageNum]) {
+                            const img = await pdfDoc.embedPng(ST.drawings[pageNum]);
+                            page.drawImage(img, { x: 0, y: 0, width: width, height: height });
                         }
 
-                        if(state.texts[pgNum]) {
-                            // Text Coordinate mapping requires matching aspect ratio
-                            // Simplified: Map pixel position % to Page size
-                            // get viewport width used for rendering
-                            const viewportW = document.getElementById('the-canvas').width; 
-                            const viewportH = document.getElementById('the-canvas').height;
-                            const sX = width / viewportW;
-                            const sY = height / viewportH;
-                            
-                            state.texts[pgNum].forEach(t => {
-                                // Simple Hex to RGB
+                        // Apply Texts
+                        if(ST.texts[pageNum]) {
+                            // Viewport reference
+                            const viewportW = document.getElementById('the-canvas').width || width * 1.5; 
+                            const viewportH = document.getElementById('the-canvas').height || height * 1.5;
+                            const scaleX = width / viewportW; 
+                            const scaleY = height / viewportH;
+
+                            ST.texts[pageNum].forEach(t => {
+                                // Parse color (Hex string like rgb(r,g,b) or #hex)
+                                // Simplified to black if parser fails, else standard PDFLib rgb
+                                
+                                // Hex to RGB helper
+                                let r=0,g=0,b=0;
+                                if(t.color.startsWith('#')) {
+                                    const bigint = parseInt(t.color.substring(1), 16);
+                                    r = ((bigint >> 16) & 255)/255;
+                                    g = ((bigint >> 8) & 255)/255;
+                                    b = (bigint & 255)/255;
+                                }
+
                                 page.drawText(t.text, {
-                                    x: t.x * sX,
-                                    y: height - (t.y * sY) - (t.size*sY),
-                                    size: t.size * sX,
-                                    color: rgb(0,0,0) // defaulting black for stability
+                                    x: t.x * scaleX,
+                                    y: height - (t.y * scaleY) - (20 * scaleY), // adjust for baseline
+                                    size: 20 * scaleX,
+                                    font: helvetica,
+                                    color: rgb(r, g, b)
                                 });
                             });
                         }
                     }
                 }
 
-                // 3. Protect Logic
-                if(state.activeTool === 'protect') {
-                    const pwd = document.getElementById('protect-pwd').value;
-                    if(pwd) {
-                        pdfDoc.encrypt({ userPassword: pwd, ownerPassword: pwd, permissions: { printing: 'highResolution', modifying: false } });
+                // 4. Apply New Protection (Tool: Protect)
+                if(ST.tool === 'protect') {
+                    const newPwd = document.getElementById('protect-pwd').value;
+                    if(newPwd) {
+                        pdfDoc.encrypt({ userPassword: newPwd, ownerPassword: newPwd, permissions: {printing:'highResolution', modifying:false}});
                     }
                 }
                 
-                // 4. Unlock Logic
-                // If we are in 'unlock' tool, we simply loaded with the password and now saving.
-                // pdf-lib removes encryption on save unless .encrypt() is called.
-                // So no extra code needed here.
+                // 5. UNLOCK: By saving without encryption params, PDFLib automatically decrypts it.
+                // No extra code needed.
 
-                const resultBytes = await pdfDoc.save();
-                download(resultBytes, state.fileName.replace('.pdf', '') + '_apnaadda.pdf', "application/pdf");
+                // 6. Generate Blob & Native Download
+                const pdfBytes = await pdfDoc.save();
+                const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = ST.filename.replace('.pdf', '') + 'apnaadda.pdf';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
 
             } catch(e) {
-                alert("Processing failed: " + e.message);
                 console.error(e);
+                alert("Download Error: " + e.message + "\nCheck console for details.");
             } finally {
-                btn.innerHTML = originalTxt;
+                event.target.textContent = oldTxt;
             }
         }
     </script>
